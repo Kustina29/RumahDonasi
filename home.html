@@ -26,11 +26,11 @@
 
         <div class="navbar-extra">
             <a href="#" id="search"><i data-feather="search"></i></a>
-            <?php if ($is_logged_in): ?>
+            <!-- <?php if ($is_logged_in): ?>
                 <a href="logout.php" id="login"><i data-feather="log-out"></i> <?php echo htmlspecialchars($_SESSION['username']); ?> </a>
-            <?php else: ?>
-                <a href="login.html" id="login"><i data-feather="user"></i> </a>
-            <?php endif; ?>
+            <?php else: ?> -->
+                <a href="signup.html" id="signup"><i data-feather="user-plus"></i></a>
+            <!-- <?php endif; ?> -->
             <a href="#" id="menu"><i data-feather="menu"></i></a>
         </div>
     </nav>
@@ -39,7 +39,7 @@
         <main class="content">
             <h1>Mari Donasikan Barang Tidak Terpakai Anda</h1>
             <p>Lorem ipsum dolor sit amet consectetur adipisicing elit. Aspernatur, id.</p>
-            <a href="donate.html" class="cta">Donate</a>
+            <a href="login.html" class="cta">Donate</a>
         </main>
     </section>
 
