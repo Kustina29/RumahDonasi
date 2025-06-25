@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Jun 25, 2025 at 12:06 AM
+-- Generation Time: Jun 25, 2025 at 11:19 PM
 -- Server version: 10.4.27-MariaDB
 -- PHP Version: 7.4.33
 
@@ -46,7 +46,9 @@ CREATE TABLE `barang_donasi` (
 --
 
 INSERT INTO `barang_donasi` (`barang_id`, `donatur_id`, `nama_barang`, `kategori`, `deskripsi_barang`, `satuan`, `jumlah`, `kondisi_barang`, `tanggal_donasi`, `status_barang`, `foto`) VALUES
-(1, 21, 'Novel', 'Buku', 'Sekumpulan novel cerita fiksi', 'Unit', 6, 'Bekas Layak Pakai', '2025-06-25 00:17:06', 'Tersedia', 'uploads/barang_donasi/685acf8295513_chaozzy-lin-Rsg-wY7pbDY-unsplash.jpg');
+(1, 21, 'Novel', 'Buku', 'Sekumpulan novel cerita fiksi', 'Unit', 6, 'Bekas Layak Pakai', '2025-06-25 00:17:06', 'Habis', 'uploads/barang_donasi/685acf8295513_chaozzy-lin-Rsg-wY7pbDY-unsplash.jpg'),
+(2, 21, 'Baju Polos', 'Pakaian', 'Baju Kaos Polos Baru', 'Unit', 12, 'Baru', '2025-06-26 02:35:20', 'Sebagian Didistribusikan', 'uploads/barang_donasi/685c416871f5a_towfiqu-barbhuiya-998DibZwpIc-unsplash.jpg'),
+(3, 21, 'Buku Tulis', 'Buku', 'Buku tulis', 'Unit', 24, 'Baru', '2025-06-26 04:36:38', 'Tersedia', 'uploads/barang_donasi/685c5dd677c00_chaozzy-lin-Rsg-wY7pbDY-unsplash.jpg');
 
 -- --------------------------------------------------------
 
@@ -85,8 +87,71 @@ CREATE TABLE `distribusi_donasi` (
 --
 
 INSERT INTO `distribusi_donasi` (`distribusi_id`, `barang_id`, `distributor_id`, `tanggal_pengajuan`, `jumlah_disalurkan`, `tanggal_penerimaan`, `tanggal_penyaluran`, `status_penyaluran`, `bukti_foto_penyaluran`, `catatan_distribusi`) VALUES
-(1, 1, 23, '2025-06-25 04:30:02', 1, '2025-06-25 05:34:40', NULL, 'Diproses Distributor', NULL, NULL),
-(2, 1, 23, '2025-06-25 04:30:02', 4, '2025-06-25 05:02:42', NULL, 'Diproses Distributor', NULL, NULL);
+(1, 1, 23, '2025-06-25 04:30:02', 1, '2025-06-25 05:34:40', '2025-06-26 02:38:02', 'Selesai', 'uploads/bukti_penyaluran_selesai/1_685b6d11163ef_AI-Generated-Image.png', ''),
+(2, 1, 23, '2025-06-25 04:30:02', 4, '2025-06-25 05:02:42', NULL, 'Diproses Distributor', NULL, NULL),
+(3, 1, 23, '2025-06-26 02:07:54', 1, NULL, NULL, 'Ditolak', NULL, NULL),
+(4, 1, 23, '2025-06-26 02:10:40', 1, NULL, NULL, 'Ditolak', NULL, NULL),
+(5, 1, 23, '2025-06-26 02:17:02', 1, NULL, NULL, 'Ditolak', NULL, NULL),
+(6, 2, 23, '2025-06-26 02:36:03', 4, '2025-06-26 02:38:53', NULL, 'Diproses Distributor', NULL, NULL),
+(7, 1, 23, '2025-06-26 02:39:16', 1, NULL, NULL, 'Diproses', NULL, NULL);
+
+--
+-- Triggers `distribusi_donasi`
+--
+DELIMITER $$
+CREATE TRIGGER `after_distribusi_insert` AFTER INSERT ON `distribusi_donasi` FOR EACH ROW BEGIN
+    DECLARE total_terdistribusi INT;
+    DECLARE total_awal INT;
+    DECLARE barang_id_terkait INT;
+
+    SET barang_id_terkait = NEW.barang_id;
+
+    -- Ambil jumlah total awal dari barang donasi
+    SELECT jumlah INTO total_awal FROM barang_donasi WHERE barang_id = barang_id_terkait;
+
+    -- Hitung total jumlah yang sudah dialokasikan (bukan 'Menunggu' atau 'Ditolak')
+    SELECT IFNULL(SUM(jumlah_disalurkan), 0) INTO total_terdistribusi 
+    FROM distribusi_donasi 
+    WHERE barang_id = barang_id_terkait AND status_penyaluran NOT IN ('Menunggu', 'Ditolak');
+
+    -- Tentukan status baru dan update tabel barang_donasi
+    IF total_terdistribusi >= total_awal THEN
+        UPDATE barang_donasi SET status_barang = 'Habis' WHERE barang_id = barang_id_terkait;
+    ELSEIF total_terdistribusi > 0 THEN
+        UPDATE barang_donasi SET status_barang = 'Sebagian Didistribusikan' WHERE barang_id = barang_id_terkait;
+    ELSE
+        UPDATE barang_donasi SET status_barang = 'Tersedia' WHERE barang_id = barang_id_terkait;
+    END IF;
+END
+$$
+DELIMITER ;
+DELIMITER $$
+CREATE TRIGGER `after_distribusi_update` AFTER UPDATE ON `distribusi_donasi` FOR EACH ROW BEGIN
+    DECLARE total_terdistribusi INT;
+    DECLARE total_awal INT;
+    DECLARE barang_id_terkait INT;
+
+    SET barang_id_terkait = NEW.barang_id;
+
+    -- Ambil jumlah total awal dari barang donasi
+    SELECT jumlah INTO total_awal FROM barang_donasi WHERE barang_id = barang_id_terkait;
+
+    -- Hitung total jumlah yang sudah dialokasikan (bukan 'Menunggu' atau 'Ditolak')
+    SELECT IFNULL(SUM(jumlah_disalurkan), 0) INTO total_terdistribusi 
+    FROM distribusi_donasi 
+    WHERE barang_id = barang_id_terkait AND status_penyaluran NOT IN ('Menunggu', 'Ditolak');
+
+    -- Tentukan status baru dan update tabel barang_donasi
+    IF total_terdistribusi >= total_awal THEN
+        UPDATE barang_donasi SET status_barang = 'Habis' WHERE barang_id = barang_id_terkait;
+    ELSEIF total_terdistribusi > 0 THEN
+        UPDATE barang_donasi SET status_barang = 'Sebagian Didistribusikan' WHERE barang_id = barang_id_terkait;
+    ELSE
+        UPDATE barang_donasi SET status_barang = 'Tersedia' WHERE barang_id = barang_id_terkait;
+    END IF;
+END
+$$
+DELIMITER ;
 
 -- --------------------------------------------------------
 
@@ -182,7 +247,7 @@ ALTER TABLE `users`
 -- AUTO_INCREMENT for table `barang_donasi`
 --
 ALTER TABLE `barang_donasi`
-  MODIFY `barang_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `barang_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `contact_us`
@@ -194,7 +259,7 @@ ALTER TABLE `contact_us`
 -- AUTO_INCREMENT for table `distribusi_donasi`
 --
 ALTER TABLE `distribusi_donasi`
-  MODIFY `distribusi_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `distribusi_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
 -- AUTO_INCREMENT for table `users`

@@ -117,18 +117,14 @@ function getBarangTersediaData($mysqli) {
             b.nama_barang,
             b.kategori,
             b.kondisi_barang,
-            -- Rumus: Jumlah awal dikurangi total yang sudah dialokasikan (bukan 'Ditolak')
             (b.jumlah - IFNULL(SUM(d.jumlah_disalurkan), 0)) AS jumlah_tersedia 
         FROM 
             barang_donasi AS b
-        LEFT JOIN 
-            -- Gabungkan dengan distribusi yang statusnya BUKAN 'Ditolak'
+        LEFT JOIN
             distribusi_donasi AS d ON b.barang_id = d.barang_id AND d.status_penyaluran != 'Ditolak'
-        GROUP BY 
-            -- Kelompokkan berdasarkan setiap barang unik
+        GROUP BY
             b.barang_id, b.nama_barang, b.kategori, b.kondisi_barang, b.jumlah
-        HAVING 
-            -- Tampilkan HANYA jika jumlah tersisa lebih dari 0
+        HAVING
             jumlah_tersedia > 0;";
     
     $result = $mysqli->query($sql);
@@ -181,11 +177,68 @@ function handlePostRequest($mysqli, $resource, $input) {
 }
 
 function getDashboardCounts($mysqli) {
+    $level = $_SESSION['level_user'] ?? 'Guest';
+    $user_id = $_SESSION['id_user'] ?? 0;
+    
     $counts = [];
-    $counts['donatur'] = $mysqli->query("SELECT COUNT(*) AS total FROM users WHERE level_user = 'Donatur'")->fetch_assoc()['total'] ?? 0;
-    $counts['distributor'] = $mysqli->query("SELECT COUNT(*) AS total FROM users WHERE level_user = 'Distributor'")->fetch_assoc()['total'] ?? 0;
-    $counts['barang_donasi'] = $mysqli->query("SELECT COUNT(*) AS total FROM barang_donasi")->fetch_assoc()['total'] ?? 0;
-    $counts['distribusi_donasi'] = $mysqli->query("SELECT COUNT(*) AS total FROM distribusi_donasi")->fetch_assoc()['total'] ?? 0;
+
+    if ($level === 'Admin') {
+        $counts['permintaan_menunggu'] = $mysqli->query("SELECT COUNT(*) AS total FROM distribusi_donasi WHERE status_penyaluran = 'Menunggu'")->fetch_assoc()['total'] ?? 0;
+        $counts['menunggu_konfirmasi'] = $mysqli->query("SELECT COUNT(*) AS total FROM distribusi_donasi WHERE status_penyaluran = 'Menunggu Konfirmasi Selesai'")->fetch_assoc()['total'] ?? 0;
+        $counts['donatur'] = $mysqli->query("SELECT COUNT(*) AS total FROM users WHERE level_user = 'Donatur'")->fetch_assoc()['total'] ?? 0;
+        $counts['distributor'] = $mysqli->query("SELECT COUNT(*) AS total FROM users WHERE level_user = 'Distributor'")->fetch_assoc()['total'] ?? 0;
+        $counts['barang_donasi'] = $mysqli->query("SELECT COUNT(*) AS total FROM barang_donasi")->fetch_assoc()['total'] ?? 0;
+        $counts['distribusi_donasi'] = $mysqli->query("SELECT COUNT(*) AS total FROM distribusi_donasi WHERE status_penyaluran = 'Selesai'")->fetch_assoc()['total'] ?? 0;
+
+    } elseif ($level === 'Donatur') {
+        $stmt_total = $mysqli->prepare("SELECT COUNT(*) AS total FROM barang_donasi WHERE donatur_id = ?");
+        $stmt_total->bind_param("i", $user_id);
+        $stmt_total->execute();
+        $counts['total_donasi_saya'] = $stmt_total->get_result()->fetch_assoc()['total'] ?? 0;
+        $stmt_total->close();
+
+        $stmt_tersalurkan = $mysqli->prepare(
+            "SELECT COUNT(dd.distribusi_id) AS total 
+             FROM distribusi_donasi dd 
+             JOIN barang_donasi bd ON dd.barang_id = bd.barang_id 
+             WHERE bd.donatur_id = ? AND dd.status_penyaluran = 'Selesai'"
+        );
+        $stmt_tersalurkan->bind_param("i", $user_id);
+        $stmt_tersalurkan->execute();
+        $counts['donasi_tersalurkan'] = $stmt_tersalurkan->get_result()->fetch_assoc()['total'] ?? 0;
+        $stmt_tersalurkan->close();
+        
+        $stmt_diproses = $mysqli->prepare(
+            "SELECT COUNT(dd.distribusi_id) AS total 
+             FROM distribusi_donasi dd 
+             JOIN barang_donasi bd ON dd.barang_id = bd.barang_id 
+             WHERE bd.donatur_id = ? AND dd.status_penyaluran NOT IN ('Selesai', 'Ditolak')"
+        );
+        $stmt_diproses->bind_param("i", $user_id);
+        $stmt_diproses->execute();
+        $counts['donasi_diproses'] = $stmt_diproses->get_result()->fetch_assoc()['total'] ?? 0;
+        $stmt_diproses->close();
+
+    } elseif ($level === 'Distributor') {            
+        $stmt_diproses = $mysqli->prepare("SELECT COUNT(*) AS total FROM distribusi_donasi WHERE distributor_id = ? AND status_penyaluran = 'Diproses'");
+        $stmt_diproses->bind_param("i", $user_id);
+        $stmt_diproses->execute();
+        $counts['siap_diambil'] = $stmt_diproses->get_result()->fetch_assoc()['total'] ?? 0;
+        $stmt_diproses->close();
+
+        $stmt_diproses_distributor = $mysqli->prepare("SELECT COUNT(*) AS total FROM distribusi_donasi WHERE distributor_id = ? AND status_penyaluran = 'Diproses Distributor'");
+        $stmt_diproses_distributor->bind_param("i", $user_id);
+        $stmt_diproses_distributor->execute();
+        $counts['diproses_distributor'] = $stmt_diproses_distributor->get_result()->fetch_assoc()['total'] ?? 0;
+        $stmt_diproses_distributor->close();
+        
+        $stmt_selesai = $mysqli->prepare("SELECT COUNT(distribusi_id) AS total FROM distribusi_donasi WHERE distributor_id = ? AND status_penyaluran = 'Selesai'");
+        $stmt_selesai->bind_param("i", $user_id);
+        $stmt_selesai->execute();
+        $counts['distribusi_selesai'] = $stmt_selesai->get_result()->fetch_assoc()['total'] ?? 0;
+        $stmt_selesai->close();
+    }
+    
     echo json_encode($counts);
 }
 
@@ -216,11 +269,12 @@ function getRiwayatDistribusiDonaturData($mysqli, $donatur_id) {
             dd.status_penyaluran,
             dd.tanggal_penyaluran,
             distributor.nama AS nama_distributor
-         FROM barang_donasi AS bd
-         JOIN distribusi_donasi AS dd ON bd.barang_id = dd.barang_id
-         JOIN users AS distributor ON dd.distributor_id = distributor.id_user
-         WHERE bd.donatur_id = ?
-         ORDER BY dd.tanggal_pengajuan DESC"
+        FROM barang_donasi AS bd
+        JOIN distribusi_donasi AS dd ON bd.barang_id = dd.barang_id
+        JOIN users AS distributor ON dd.distributor_id = distributor.id_user
+        WHERE 
+            bd.donatur_id = ? AND dd.status_penyaluran NOT IN ('Menunggu', 'Ditolak')
+        ORDER BY dd.tanggal_pengajuan DESC"
     );
     $stmt->bind_param("i", $donatur_id);
     $stmt->execute();
@@ -355,32 +409,41 @@ function getPermintaanDistribusiAdminData($mysqli) {
 }
 
 function addPermintaanDistribusi($mysqli, $input) {
+    if ($_SESSION['level_user'] !== 'Distributor') {
+        http_response_code(403);
+        echo json_encode(['message' => 'Hanya distributor yang dapat mengajukan permintaan.']);
+        return;
+    }
+
     $distributor_id = $_SESSION['id_user'] ?? 0;
     $barang_id = $input['barang_id'] ?? 0;
     $jumlah_diminta = $input['jumlah_disalurkan'] ?? 0;
 
-    if (empty($distributor_id) || empty($barang_id) || empty($jumlah_diminta) || $jumlah_diminta <= 0) {
+    if (empty($distributor_id) || empty($barang_id) || $jumlah_diminta <= 0) {
         http_response_code(400);
-        echo json_encode(['message' => 'Data tidak lengkap atau tidak valid.']);
+        echo json_encode(['message' => 'Data permintaan tidak lengkap atau tidak valid.']);
         return;
     }
 
     $stmt_check = $mysqli->prepare(
-        "INSERT INTO distribusi_donasi (barang_id, distributor_id, jumlah_disalurkan, status_penyaluran) 
-         VALUES (?, ?, ?, 'Menunggu')"
+        "SELECT (b.jumlah - IFNULL(SUM(d.jumlah_disalurkan), 0)) AS jumlah_tersedia 
+         FROM barang_donasi AS b 
+         LEFT JOIN distribusi_donasi AS d ON b.barang_id = d.barang_id AND d.status_penyaluran != 'Ditolak' 
+         WHERE b.barang_id = ? 
+         GROUP BY b.barang_id"
     );
-    $stmt_check->bind_param("iii", $barang_id, $distributor_id, $jumlah_diminta);
+    $stmt_check->bind_param("i", $barang_id);
     $stmt_check->execute();
     $result_check = $stmt_check->get_result();
     $barang = $result_check->fetch_assoc();
-
-    if (!$barang || $jumlah_diminta > $barang['jumlah']) {
-        http_response_code(400);
-        echo json_encode(['message' => 'Permintaan gagal. Stok tidak mencukupi atau barang tidak lagi tersedia.']);
-        return;
-    }
     $stmt_check->close();
 
+    if (!$barang || $jumlah_diminta > $barang['jumlah_tersedia']) {
+        http_response_code(400);
+        echo json_encode(['message' => 'Permintaan gagal. Stok tidak mencukupi (' . ($barang['jumlah_tersedia'] ?? 0) . ' tersedia).']);
+        return;
+    }
+    
     $stmt = $mysqli->prepare("INSERT INTO distribusi_donasi (barang_id, distributor_id, jumlah_disalurkan, status_penyaluran) VALUES (?, ?, ?, 'Menunggu')");
     $stmt->bind_param("iii", $barang_id, $distributor_id, $jumlah_diminta);
 

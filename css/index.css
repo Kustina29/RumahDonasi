@@ -650,81 +650,113 @@ form button[type="submit"]:hover {
 .modal {
     display: none;
     position: fixed;
-    z-index: 1;
+    z-index: 1000;
     left: 0;
     top: 0;
     width: 100%;
     height: 100%;
     overflow: auto;
-    background-color: rgba(0,0,0,0.4);
-    padding-top: 60px;
+    background-color: rgba(0, 0, 0, 0.6);
+    
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+.modal.show {
+    display: flex;
+    opacity: 1;
+    pointer-events: auto;
 }
 
 .modal-content {
-    background-color: var(--light);
-    margin: 5% auto;
-    padding: 20px;
-    border: 1px solid var(--grey);
-    border-radius: 10px;
-    width: 80%;
-    max-width: 500px;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
     position: relative;
+    background-color: #ffffff;
+    padding: 30px 35px;
+    border: none;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 550px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    transform: scale(0.95);
+    transition: transform 0.3s ease;
+}
+
+.modal.show .modal-content {
+    transform: scale(1);
 }
 
 .close-button {
-    color: var(--dark-grey);
+    color: #aaa;
+    position: absolute;
+    top: 15px;
+    right: 20px;
     font-size: 28px;
     font-weight: bold;
-    position: absolute;
-    top: 10px;
-    right: 20px;
-    cursor: pointer;
+    transition: transform 0.2s ease, color 0.2s ease;
 }
 
 .close-button:hover,
 .close-button:focus {
-    color: var(--dark);
+    color: #333;
     text-decoration: none;
     cursor: pointer;
+    transform: rotate(90deg);
 }
 
 .modal-content h2 {
     margin-top: 0;
-    margin-bottom: 20px;
+    margin-bottom: 24px;
     color: var(--dark-green);
+    font-weight: 600;
+    border-bottom: 1px solid var(--grey);
+    padding-bottom: 15px;
 }
 
 .modal-content form label {
     display: block;
-    margin-bottom: 5px;
+    margin-bottom: 8px;
     font-weight: 600;
+    font-size: 14px;
+    color: #555;
 }
 
 .modal-content form input[type="text"],
 .modal-content form input[type="email"],
 .modal-content form input[type="password"],
+.modal-content form input[type="number"],
+.modal-content form input[type="file"],
 .modal-content form select,
 .modal-content form textarea {
-    width: calc(100% - 20px);
-    padding: 10px;
-    margin-bottom: 15px;
-    border: 1px solid var(--grey);
-    border-radius: 5px;
+    width: 100%;
+    padding: 12px 15px;
+    margin-bottom: 20px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
     box-sizing: border-box;
+    font-size: 14px;
+    font-family: 'Poppins', sans-serif;
+    transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.modal-content form input:focus,
+.modal-content form select:focus,
+.modal-content form textarea:focus {
+    outline: none;
+    border-color: var(--dark-green);
+    box-shadow: 0 0 0 4px rgba(4, 170, 109, 0.15);
 }
 
 .modal-content form button[type="submit"] {
-    width: auto;
-    padding: 10px 20px;
-    background-color: var(--dark-green);
-    color: var(--light);
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 16px;
+    display: block;
+    margin-left: auto; /* Posisikan tombol ke kanan */
+    padding: 12px 28px;
+    font-size: 15px;
     font-weight: 600;
-    transition: background-color .3s ease;
 }
 
 .modal-content form button[type="submit"]:hover {

@@ -74,40 +74,7 @@ $currentUsername = $_SESSION['username'] ?? 'Guest';
 					<li class="divider">/</li>
 					<li><a href="#" class="active">Dashboard</a></li>
 				</ul>
-				<div class="info-data">
-					<div class="card">
-						<div class="head">
-							<div>
-								<h2 id="donaturCount">0</h2>
-								<p>Donatur</p>
-							</div>
-						</div>
-					</div>
-					<div class="card">
-						<div class="head">
-							<div>
-								<h2 id="distributorCount">0</h2>
-								<p>Distributor</p>
-							</div>
-						</div>
-					</div>
-					<div class="card">
-						<div class="head">
-							<div>
-								<h2 id="barangDonasiCount">0</h2>
-								<p>Barang Donasi</p>
-							</div>
-						</div>
-					</div>
-					<div class="card">
-						<div class="head">
-							<div>
-								<h2 id="distribusiDonasiCount">0</h2>
-								<p>Distribusi Donasi</p>
-							</div>
-						</div>
-					</div>
-				</div>
+				<div class="info-data" id="dashboard-cards-container"></div>
 			</div>
 
 			<div id="page-donatur" class="page-content" style="display: none;">
@@ -215,50 +182,8 @@ $currentUsername = $_SESSION['username'] ?? 'Guest';
 				</div>
 			</div>
 
-			<div id="page-tambah-barang-donasi" class="page-content" style="display: none;">
-				<h1 class="title">Tambah Barang Donasi</h1>
-				<ul class="breadcrumbs">
-					<li><a href="#">Home</a></li>
-					<li class="divider">/</li>
-					<li><a href="#" class="active">Tambah Barang Donasi</a></li>
-				</ul>
-				<div class="data">
-					<div class="content-data">
-						<p>Formulir untuk menambah barang donasi akan ditampilkan di sini.</p>
-						<form>
-							<label for="donatur_id">ID Donatur:</label>
-							<input type="number" id="donatur_id" name="donatur_id" required><br><br>
-							<label for="nama_barang">Nama Barang:</label>
-							<input type="text" id="nama_barang" name="nama_barang" required><br><br>
-							<label for="kategori">Kategori:</label>
-							<input type="text" id="kategori" name="kategori" required><br><br>
-							<label for="deskripsi_barang">Deskripsi Barang:</label>
-							<textarea id="deskripsi_barang" name="deskripsi_barang"></textarea><br><br>
-							<label for="satuan">Satuan:</label>
-							<select id="satuan" name="satuan" required>
-								<option value="Unit">Unit</option>
-								<option value="Pcs">Pcs</option>
-								<option value="Pasang">Pasang</option>
-								<option value="Lainnya">Lainnya</option>
-							</select><br><br>
-							<label for="jumlah">Jumlah:</label>
-							<input type="number" id="jumlah" name="jumlah" required><br><br>
-							<label for="kondisi_barang">Kondisi Barang:</label>
-							<select id="kondisi_barang" name="kondisi_barang" required>
-								<option value="Baru">Baru</option>
-								<option value="Bekas Layak Pakai">Bekas Layak Pakai</option>
-								<option value="Rusak Ringan">Rusak Ringan</option>
-							</select><br><br>
-							<label for="foto">Foto Barang:</label>
-							<input type="file" id="foto" name="foto"><br><br>
-							<button type="submit">Tambah Donasi</button>
-						</form>
-					</div>
-				</div>
-			</div>
-
 			<div id="page-barang-donasi" class="page-content" style="display: none;">
-				<h1 class="title">Daftar Barang Donasi</h1>
+				<h1 class="title">Data Barang Donasi</h1>
 				<ul class="breadcrumbs">
 					<li><a href="#">Home</a></li>
 					<li class="divider">/</li>
@@ -266,6 +191,9 @@ $currentUsername = $_SESSION['username'] ?? 'Guest';
 				</ul>
 				<div class="data">
 					<div class="content-data">
+
+						<button id="addBarangDonasiAdminBtn" class="add-btn">Tambah Barang Donasi</button>
+
 						<p>Tabel informasi mengenai Barang Donasi</p>
 						<table>
 							<thead>
@@ -278,10 +206,53 @@ $currentUsername = $_SESSION['username'] ?? 'Guest';
 									<th>Status</th>
 								</tr>
 							</thead>
-							<tbody>
-								</tbody>
+							<tbody></tbody>
 						</table>
 					</div>
+				</div>
+			</div>
+
+			<div id="adminTambahDonasiModal" class="modal">
+				<div class="modal-content">
+					<span class="close-button">&times;</span>
+					<h2>Tambah Barang Donasi (oleh Admin)</h2>
+
+					<form id="adminTambahDonasiForm" enctype="multipart/form-data">
+						<label for="donatur_id">Pilih Donatur:</label>
+						<select id="adminDonaturIdSelect" name="donatur_id" required></select>
+
+						<label for="adminNamaBarang">Nama Barang:</label>
+						<input type="text" id="adminNamaBarang" name="nama_barang" required>
+
+						<label for="adminKategori">Kategori:</label>
+						<input type="text" id="adminKategori" name="kategori" required>
+
+						<label for="adminDeskripsi">Deskripsi Barang:</label>
+						<textarea id="adminDeskripsi" name="deskripsi_barang"></textarea>
+
+						<label for="adminJumlah">Jumlah:</label>
+						<input type="number" id="adminJumlah" name="jumlah" required min="1">
+
+						<label for="adminSatuan">Satuan:</label>
+						<select id="adminSatuan" name="satuan" required>
+							<option value="Unit">Unit</option>
+							<option value="Pcs">Pcs</option>
+							<option value="Pasang">Pasang</option>
+							<option value="Lainnya">Lainnya</option>
+						</select>
+
+						<label for="adminKondisi">Kondisi Barang:</label>
+						<select id="adminKondisi" name="kondisi_barang" required>
+							<option value="Baru">Baru</option>
+							<option value="Bekas Layak Pakai">Bekas Layak Pakai</option>
+							<option value="Rusak Ringan">Rusak Ringan</option>
+						</select>
+
+						<label for="adminFoto">Foto Barang (Opsional):</label>
+						<input type="file" id="adminFoto" name="foto" accept="image/*">
+
+						<button type="submit">Tambah Donasi</button>
+					</form>
 				</div>
 			</div>
 

@@ -128,6 +128,13 @@ window.addEventListener('click', function (e) {
 			}
 		}
 	})
+    
+    const openModals = document.querySelectorAll('.modal');
+    openModals.forEach(modal => {
+        if (e.target == modal) {
+            modal.classList.remove('show');
+        }
+    });
 })
 
 function hideAllPages() { 
@@ -274,12 +281,41 @@ async function postFormData(url, formData) {
 }
 
 async function loadDashboardCounts() { 
-    const counts = await fetchData('api.php?resource=dashboard_counts'); 
-    if (counts) { 
-        document.getElementById('donaturCount').textContent = counts.donatur !== undefined ? counts.donatur : 'N/A'; 
-        document.getElementById('distributorCount').textContent = counts.distributor !== undefined ? counts.distributor : 'N/A'; 
-        document.getElementById('barangDonasiCount').textContent = counts.barang_donasi !== undefined ? counts.barang_donasi : 'N/A'; 
-        document.getElementById('distribusiDonasiCount').textContent = counts.distribusi_donasi !== undefined ? counts.distribusi_donasi : 'N/A'; 
+    const data = await fetchData('api.php?resource=dashboard_counts');
+    const container = document.getElementById('dashboard-cards-container');
+    container.innerHTML = '';
+
+    function createCard(title, value, iconClass) {
+        return `
+            <div class="card">
+                <div class="head">
+                    <div>
+                        <h2>${value !== null ? value : 0}</h2>
+                        <p>${title}</p>
+                    </div>
+                    <i class='bx ${iconClass} icon'></i>
+                </div>
+            </div>
+        `;
+    }
+
+    if (currentUserLevel === 'Admin') {
+        container.innerHTML += createCard('Permintaan Baru', data.permintaan_menunggu, 'bxs-bell');
+        container.innerHTML += createCard('Perlu Dikonfirmasi', data.menunggu_konfirmasi, 'bxs-user-check');
+        container.innerHTML += createCard('Total Donatur', data.donatur, 'bxs-donate-heart');
+        container.innerHTML += createCard('Total Distributor', data.distributor, 'bxs-group');
+        container.innerHTML += createCard('Total Barang Donasi', data.barang_donasi, 'bxs-box');
+        container.innerHTML += createCard('Total Distribusi Selesai', data.distribusi_donasi, 'bxs-check-shield');
+    } 
+    else if (currentUserLevel === 'Donatur') {
+        container.innerHTML += createCard('Total Donasi Saya', data.total_donasi_saya, 'bxs-box');
+        container.innerHTML += createCard('Donasi Dalam Proses', data.donasi_diproses, 'bxs-time-five');
+        container.innerHTML += createCard('Donasi Telah Tersalurkan', data.donasi_tersalurkan, 'bxs-check-shield');
+    }
+    else if (currentUserLevel === 'Distributor') {
+        container.innerHTML += createCard('Barang Siap Diambil', data.siap_diambil, 'bxs-package');
+        container.innerHTML += createCard('Distribusi Diproses', data.diproses_distributor, 'bxs-archive-out');
+        container.innerHTML += createCard('Distribusi Selesai', data.distribusi_selesai, 'bxs-check-shield');
     }
 }
 
@@ -565,13 +601,14 @@ const closeButtons = document.querySelectorAll('.close-button');
 
 const donaturRegistrationForm = document.getElementById('donaturRegistrationForm'); 
 const distributorRegistrationForm = document.getElementById('distributorRegistrationForm'); 
-const tambahBarangDonasiFormAdmin = document.querySelector('#page-tambah-barang-donasi form'); 
+const addBarangDonasiAdminBtn = document.getElementById('addBarangDonasiAdminBtn');
+const adminTambahDonasiForm = document.getElementById('adminTambahDonasiForm');
 const tambahDonasiDonaturForm = document.querySelector('#page-tambah-donasi-donatur form'); 
 
 if (addDonaturBtn) { 
     addDonaturBtn.onclick = function() { 
         if (currentUserLevel === 'Admin') {
-            donaturModal.style.display = 'block'; 
+            donaturModal.classList.add('show');
         } else {
             alert('Anda tidak memiliki izin untuk melakukan tindakan ini.'); 
         }
@@ -581,7 +618,7 @@ if (addDonaturBtn) {
 if (addDistributorBtn) { 
     addDistributorBtn.onclick = function() { 
         if (currentUserLevel === 'Admin') {
-            distributorModal.style.display = 'block'; 
+            distributorModal.classList.add('show');
         } else {
             alert('Anda tidak memiliki izin untuk melakukan tindakan ini.'); 
         }
@@ -590,17 +627,17 @@ if (addDistributorBtn) {
 
 closeButtons.forEach(button => { 
     button.onclick = function() { 
-        donaturModal.style.display = 'none'; 
-        distributorModal.style.display = 'none'; 
+        donaturModal.classList.remove('show');
+        distributorModal.classList.remove('show');
     }
 });
 
 window.onclick = function(event) { 
     if (event.target == donaturModal) { 
-        donaturModal.style.display = 'none'; 
+        donaturModal.classList.remove('show');
     }
     if (event.target == distributorModal) { 
-        distributorModal.style.display = 'none'; 
+        distributorModal.classList.remove('show');
     }
 }
 
@@ -615,7 +652,7 @@ if (donaturRegistrationForm) {
             alert(result.message); 
             if (result.id) {
                 loadDonaturData();
-                donaturModal.style.display = 'none';
+                donaturModal.classList.remove('show');
                 this.reset();
                 loadDashboardCounts();
             }
@@ -634,7 +671,7 @@ if (distributorRegistrationForm) {
             alert(result.message); 
             if (result.message.includes('berhasil')) {
                  loadDistributorData();
-                 distributorModal.style.display = 'none';
+                 distributorModal.classList.remove('show');
                  this.reset();
                  loadDashboardCounts();
             }
@@ -642,16 +679,39 @@ if (distributorRegistrationForm) {
     });
 }
 
-if (tambahBarangDonasiFormAdmin) { 
-    tambahBarangDonasiFormAdmin.addEventListener('submit', async function(e) { 
+if (addBarangDonasiAdminBtn) {
+    addBarangDonasiAdminBtn.addEventListener('click', async () => {
+        const modal = document.getElementById('adminTambahDonasiModal');
+        const selectDonatur = document.getElementById('adminDonaturIdSelect');
+        if (modal && selectDonatur) {
+            selectDonatur.innerHTML = '<option value="">Memuat donatur...</option>';
+            const donaturList = await fetchData('api.php?resource=donatur');
+            selectDonatur.innerHTML = '<option value="">-- Pilih Donatur --</option>';
+            if (donaturList.length > 0) {
+                donaturList.forEach(donatur => {
+                    const option = `<option value="${donatur.id_user}">${donatur.nama}</option>`;
+                    selectDonatur.insertAdjacentHTML('beforeend', option);
+                });
+            }
+            modal.classList.add('show');
+        } else {
+            alert('Modal untuk Tambah Barang Donasi tidak ditemukan.');
+        }
+    });
+}
+
+if (adminTambahDonasiForm) {
+    adminTambahDonasiForm.addEventListener('submit', async function(e) {
         e.preventDefault(); 
         const formData = new FormData(this);
-        const result = await postFormData('api.php?resource=barang_donasi', formData); 
-        if (result.message) { 
+        const result = await postFormData('api.php?resource=barang_donasi', formData);
+        if (result.message) {
             alert(result.message); 
-            if (result.id) { 
-                this.reset();
-                loadDashboardCounts();
+            if (result.id) {
+                document.getElementById('adminTambahDonasiModal').style.display = 'none';
+                this.reset(); 
+                loadBarangDonasiData();
+                loadDashboardCounts(); 
             }
         }
     });
@@ -693,12 +753,19 @@ document.addEventListener('click', function(e) {
         jumlahInput.value = 1;
         jumlahInput.max = maxJumlah;
         
-        permintaanModal.style.display = 'block';
+        permintaanModal.classList.add('show');
+    }
+
+    if (e.target && e.target.classList.contains('close-button')) {
+        const modal = e.target.closest('.modal');
+        if (modal) {
+            modal.classList.remove('show');
+        }
     }
     
-    if (e.target && e.target.classList.contains('close-button') && e.target.closest('#permintaanModal')) {
-        permintaanModal.style.display = 'none';
-    }
+    // if (e.target && e.target.classList.contains('close-button') && e.target.closest('#permintaanModal')) {
+    //     permintaanModal.classList.remove('show');
+    // }
 });
 
 if (permintaanForm) {
@@ -711,7 +778,7 @@ if (permintaanForm) {
         if (result.message) {
             alert(result.message);
             if (result.message.includes('berhasil')) {
-                permintaanModal.style.display = 'none';
+                permintaanModal.classList.remove('show');
                 this.reset();
                 document.querySelector('a[data-page="permintaan-distribusi-distributor"]').click();
             }
@@ -757,13 +824,13 @@ document.addEventListener('click', async function(e) {
         const selesaiModal = document.getElementById('selesaiModal');
         document.getElementById('selesaiDistribusiIdText').textContent = `#${distribusiId}`;
         document.getElementById('selesaiDistribusiId').value = distribusiId;
-        selesaiModal.style.display = 'block';
+        selesaiModal.classList.add('show');
     }
     
     // Logika untuk tombol close modal
     if (e.target && e.target.classList.contains('close-button')) {
         const modal = e.target.closest('.modal');
-        if (modal) modal.style.display = 'none';
+        if (modal) modal.classList.remove('show');
     }
 
     if (e.target && e.target.classList.contains('final-confirm-btn')) {
